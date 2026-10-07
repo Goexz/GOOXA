@@ -1,0 +1,79 @@
+name: Update GitHub Metrics
+
+on:
+  # 17:00 UTC = midnight in Thailand. Scheduled runs use the default branch.
+  schedule:
+    - cron: "0 17 * * *"
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/metrics.yml"
+      - "README.md"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: github-profile-metrics
+  cancel-in-progress: false
+
+jobs:
+  metrics:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check Metrics setup
+        env:
+          METRICS_TOKEN: ${{ secrets.METRICS_TOKEN }}
+        run: |
+          if [ -z "$METRICS_TOKEN" ]; then
+            echo "::error::Add an Actions repository secret named METRICS_TOKEN, then run this workflow again. See SETUP.md."
+            exit 1
+          fi
+
+      - name: Render Goexz's dashboard
+        uses: lowlighter/metrics@latest
+        with:
+          user: Goexz
+          token: ${{ secrets.METRICS_TOKEN }}
+          committer_token: ${{ secrets.GITHUB_TOKEN }}
+          committer_branch: ${{ github.event.repository.default_branch }}
+          committer_message: "chore: refresh GitHub metrics [skip ci]"
+          output_action: commit
+          filename: github-metrics.svg
+          template: classic
+          base: header, activity, community, repositories, metadata
+          config_display: columns
+          config_timezone: Asia/Bangkok
+          config_padding: 12
+          config_order: base.header, base.activity+community, base.repositories, isocalendar, languages, habits, base.metadata
+          config_twemoji: "yes"
+
+          # Contribution calendar with an isometric 3D view.
+          plugin_isocalendar: "yes"
+          plugin_isocalendar_duration: full-year
+
+          # Actual GitHub repository language data.
+          plugin_languages: "yes"
+          plugin_languages_limit: 8
+          plugin_languages_sections: most-used
+          plugin_languages_details: percentage, bytes-size
+          plugin_languages_colors: github
+          repositories_forks: "no"
+
+          # Coding activity: hours, days, and recent patterns.
+          plugin_habits: "yes"
+          plugin_habits_from: 200
+          plugin_habits_days: 30
+          plugin_habits_facts: "yes"
+          plugin_habits_charts: "yes"
+          plugin_habits_charts_type: classic
+          plugin_habits_trim: "no"
+          plugin_habits_languages_limit: 8
+
+          # Lime headings match the portfolio; the template handles its theme.
+          extras_css: |
+            h2 {
+              color: #d6ff63 !important;
+            }
